@@ -362,6 +362,7 @@ function show(html, cls, darkBar) {
   screen.scrollTop = 0;
   statusbar.classList.toggle("dark", !!darkBar);
   homeBar.classList.toggle("dark", !!darkBar);
+  requestAnimationFrame(placeSpotify);
 }
 
 function page(title, body, back = "home", backLabel = "Home", extraCls = "") {
@@ -521,6 +522,7 @@ function hideBanner() {
   island.classList.remove("live");
   island.innerHTML = "";
   delete island.dataset.go;
+  musicIsland();
 }
 
 /* ================= Playing a beat ================= */
@@ -1271,7 +1273,7 @@ function playlist(i) {
         <div class="mu-pl-sub">${esc(p.note || S.ownerName + " · " + p.tracks.length + " songs")}</div>
         <button class="mu-play" data-go="track:${i}.0" aria-label="Play">▶</button>
       </div>
-      ${p.spotify && spotifyEmbed(p.spotify) ? `<div class="mu-embed">${spotifyEmbed(p.spotify, 352)}</div>` : ""}
+      ${p.spotify && spotifyEmbed(p.spotify) ? `<div class="mu-embed"><div class="sp-slot" data-url="${esc(p.spotify)}" data-pl="${i}" data-name="${esc(p.name)}"></div></div>` : ""}
       ${p.ytmusic ? `<div class="mu-links"><a class="np-listen" href="${esc(p.ytmusic)}" target="_blank" rel="noopener">Open in YouTube Music ↗</a></div>` : ""}
       ${p.tracks.map((t, n) => {
         const tr = trackInfo(t);
@@ -1333,6 +1335,57 @@ function nowPlaying(arg) {
       ${spotifyEmbed(tr.spotify)}
       <a class="np-listen" href="${yt}" target="_blank" rel="noopener">Listen on YouTube ↗</a>
     </div>`, "app np-screen", false);
+}
+
+/* ---------- Spotify that keeps playing ----------
+   One Spotify player lives outside the screen, so it survives moving between apps.
+   On the playlist page it sits over the empty slot; anywhere else it is moved out of view
+   (still playing) and the Dynamic Island shows what is playing. Tap the island to go back. */
+const spLayer = document.createElement("div");
+spLayer.id = "spLayer";
+phoneEl.appendChild(spLayer);
+let spot = null;
+
+function placeSpotify() {
+  const slot = screen.querySelector(".sp-slot");
+  if (slot) {
+    if (!spot || spot.url !== slot.dataset.url) {
+      spLayer.innerHTML = spotifyEmbed(slot.dataset.url, 352);
+      spot = { url: slot.dataset.url, pl: +slot.dataset.pl, name: slot.dataset.name, S };
+    }
+    const r = slot.getBoundingClientRect(), pr = phoneEl.getBoundingClientRect();
+    const bw = phoneEl.clientLeft, bt = phoneEl.clientTop;
+    spLayer.style.cssText = `left:${r.left - pr.left - bw}px;top:${r.top - pr.top - bt}px;width:${r.width}px;height:${r.height}px`;
+    spLayer.className = "on";
+  } else if (spot) {
+    spLayer.className = "away";
+  }
+  musicIsland();
+}
+screen.addEventListener("scroll", () => { if (spLayer.className === "on") placeSpotify(); }, true);
+window.addEventListener("resize", () => requestAnimationFrame(placeSpotify));
+
+function musicIsland() {
+  if (island.dataset.go === "open-pending" || banner.classList.contains("show")) return;
+  const away = spot && spLayer.className === "away";
+  island.classList.toggle("music", !!away);
+  if (!away) {
+    if (island.dataset.go === "sp-return") { island.innerHTML = ""; delete island.dataset.go; island.classList.remove("live"); }
+    return;
+  }
+  const other = spot.S !== S;
+  island.innerHTML = `<span class="il-note">♪</span><span class="il-text">${esc(other ? "Tap to stop music" : spot.name)}</span><span class="il-bars"><i></i><i></i><i></i></span>`;
+  island.dataset.go = "sp-return";
+  island.classList.add("live");
+}
+
+function stopSpotify() {
+  spot = null;
+  spLayer.innerHTML = "";
+  spLayer.className = "";
+  island.classList.remove("live", "music");
+  island.innerHTML = "";
+  delete island.dataset.go;
 }
 
 // Spotify players only load on your own hosting (GitHub Pages, or opening index.html on your computer).
@@ -1606,6 +1659,10 @@ function go(r) {
       if (soundOn) SFX.notify();
       return route === "parts" ? partsMenu() : undefined;
     case "open-pending": return pending ? go(pending.route) : undefined;
+    case "sp-return":
+      if (spot && spot.S === S && unlocked && !play) return go("playlist:" + spot.pl);
+      if (spot && spot.S !== S) return stopSpotify();
+      return;
     case "edge-home":
       if (route === "lock") return go("passcode");
       if (unlocked && !["parts", "end"].includes(route)) return go("home");
