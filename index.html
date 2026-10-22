@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Not Just Any Secretary</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="phone" id="phone">
+    <div class="island"></div>
+    <div class="statusbar" id="statusbar">
+      <span class="sb-time" id="sbTime"></span>
+      <span class="sb-icons">
+        <span class="signal"><i></i><i></i><i></i><i></i></span>
+        <span class="battery"><span></span></span>
+      </span>
+    </div>
+    <main id="screen" class="screen"></main>
+    <div class="home-bar" id="homeBar"></div>
+  </div>
+
+  <!-- Story files first, then the app -->
+  <script src="story.js" charset="utf-8"></script>
+  <script src="story-azura.js" charset="utf-8"></script>
+  <script src="app.js" charset="utf-8"></script>
+</body>
+</html>
